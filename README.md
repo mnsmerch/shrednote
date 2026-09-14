@@ -259,8 +259,13 @@ If a deployment fails during `prisma migrate deploy`, the build stops before
 `next build` and the previous deployment stays live — the schema and the code
 never drift apart.
 
-`vercel.json` schedules the cleanup job hourly. On another platform, call the
-same endpoint from your scheduler:
+`vercel.json` schedules the cleanup job daily at 03:00 UTC, which is what
+Vercel's Hobby plan allows (one cron job, once per day). On Pro, or on any
+other scheduler, an hourly `0 * * * *` is better: expired notes then linger for
+at most an hour rather than up to a day. Cleanup is housekeeping either way -
+a note stops being readable the moment it expires, whatever the schedule.
+
+On another platform, call the same endpoint from your scheduler:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/cleanup
