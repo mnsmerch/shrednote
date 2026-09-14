@@ -16,6 +16,11 @@ import { NextResponse, type NextRequest } from 'next/server';
  *
  * NOTE: `style-src` allows 'unsafe-inline'. Nonced styles are incompatible
  * with React's inline style attributes, and inline CSS cannot execute script.
+ *
+ * TRADE-OFF: a per-request nonce means pages that emit inline structured data
+ * render dynamically rather than statically. For a security product that is
+ * the right way round, and the pages are small enough that it costs a couple
+ * of milliseconds.
  */
 export default function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
