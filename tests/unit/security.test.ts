@@ -55,7 +55,7 @@ describe('admin password handling', () => {
     const hash = hashAdminPassword(password);
 
     expect(hash).not.toContain(password);
-    expect(hash.startsWith('scrypt$')).toBe(true);
+    expect(hash.startsWith('scrypt.')).toBe(true);
 
     process.env.ADMIN_PASSWORD_HASH = hash;
     expect(verifyAdminPassword(password)).toBe(true);
@@ -68,13 +68,54 @@ describe('admin password handling', () => {
     expect(hashAdminPassword('same-password')).not.toBe(hashAdminPassword('same-password'));
   });
 
+  /*
+   * REGRESSION: the hash was once '$'-separated, the conventional format for
+   * password hash strings. Because it is stored in an environment variable,
+   * and dotenv-style loaders (including Next.js's) expand `$name` sequences
+   * even inside single quotes, the value was silently rewritten on load and
+   * the admin password could never match. The end-to-end test did not catch
+   * it because Playwright injects the variable directly rather than through a
+   * .env file.
+   *
+   * The hash must therefore survive being written to, and read back from, an
+   * environment file unchanged.
+   */
+  it('produces a hash that is safe in an environment variable', () => {
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const hash = hashAdminPassword(`password-${attempt}`);
+
+      // No expansion, quoting, escaping, splitting or comment characters.
+      expect(hash).toMatch(/^[A-Za-z0-9_\-.]+$/);
+      for (const hostile of ['$', '"', "'", '\\', '`', '#', ' ', '\n', '\r']) {
+        expect(hash).not.toContain(hostile);
+      }
+    }
+  });
+
+  it('verifies a hash that has been round-tripped through a .env file', () => {
+    const password = 'round-trip-admin-password';
+    const hash = hashAdminPassword(password);
+
+    // Mimic writing `KEY=value` and parsing it back the way a loader would,
+    // including the `$name` expansion step that broke the original format.
+    const line = `ADMIN_PASSWORD_HASH=${hash}`;
+    const parsed = line.slice('ADMIN_PASSWORD_HASH='.length);
+    const expanded = parsed.replace(/\$(\w+)/g, (_match, name: string) => process.env[name] ?? '');
+
+    expect(expanded).toBe(hash);
+
+    process.env.ADMIN_PASSWORD_HASH = expanded;
+    expect(verifyAdminPassword(password)).toBe(true);
+    delete process.env.ADMIN_PASSWORD_HASH;
+  });
+
   it('refuses every password when no hash is configured', () => {
     delete process.env.ADMIN_PASSWORD_HASH;
     expect(verifyAdminPassword('anything')).toBe(false);
   });
 
   it('refuses a malformed stored hash instead of throwing', () => {
-    for (const broken of ['', 'nonsense', 'scrypt$1$2$3', 'bcrypt$1$8$1$aa$bb']) {
+    for (const broken of ['', 'nonsense', 'scrypt.1.2.3', 'bcrypt.1.8.1.aa.bb', 'scrypt.a.b.c.d.e']) {
       process.env.ADMIN_PASSWORD_HASH = broken;
       expect(verifyAdminPassword('anything')).toBe(false);
     }

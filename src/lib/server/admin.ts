@@ -26,6 +26,20 @@ export const ADMIN_SESSION_SECONDS = 60 * 60 * 8;
 const SCRYPT_KEYLEN = 64;
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 } as const;
 
+/**
+ * Field separator for the stored hash.
+ *
+ * NOT '$', even though that is the conventional choice for password hash
+ * strings. This value lives in an environment variable, and dotenv-style
+ * loaders - including the one Next.js uses - perform variable expansion on
+ * `$name` sequences even inside single quotes. A '$'-separated hash is
+ * silently rewritten on load, and the admin password then never matches.
+ *
+ * '.' is outside the base64url alphabet, so it cannot collide with the salt or
+ * the digest, and it has no meaning to any shell or env parser.
+ */
+const SEPARATOR = '.';
+
 /** Produces the value stored in ADMIN_PASSWORD_HASH. */
 export function hashAdminPassword(password: string): string {
   const salt = randomBytes(16);
@@ -37,15 +51,20 @@ export function hashAdminPassword(password: string): string {
     SCRYPT_PARAMS.p,
     salt.toString('base64url'),
     derived.toString('base64url'),
-  ].join('$');
+  ].join(SEPARATOR);
 }
 
-/** Constant-time verification against the configured hash. */
+/**
+ * Constant-time verification against the configured hash.
+ *
+ * Returns false rather than throwing for every malformed input, so a
+ * misconfigured deployment fails closed instead of 500-ing.
+ */
 export function verifyAdminPassword(password: string): boolean {
   const stored = adminPasswordHash();
   if (!stored) return false;
 
-  const parts = stored.split('$');
+  const parts = stored.split(SEPARATOR);
   if (parts.length !== 6 || parts[0] !== 'scrypt') return false;
 
   const N = Number(parts[1]);

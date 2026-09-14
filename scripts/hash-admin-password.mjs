@@ -12,6 +12,11 @@ import { randomBytes, scryptSync } from 'node:crypto';
 const SCRYPT_KEYLEN = 64;
 const PARAMS = { N: 16384, r: 8, p: 1 };
 
+// Must match SEPARATOR in src/lib/server/admin.ts. Deliberately not '$':
+// dotenv-style loaders expand `$name` sequences even inside single quotes,
+// which would corrupt the hash on load.
+const SEPARATOR = '.';
+
 function hashPassword(password) {
   const salt = randomBytes(16);
   const derived = scryptSync(password, salt, SCRYPT_KEYLEN, { ...PARAMS });
@@ -22,7 +27,7 @@ function hashPassword(password) {
     PARAMS.p,
     salt.toString('base64url'),
     derived.toString('base64url'),
-  ].join('$');
+  ].join(SEPARATOR);
 }
 
 /** Reads a line from the terminal without echoing it. */
@@ -80,5 +85,7 @@ if (password !== confirmation) {
   process.exit(1);
 }
 
-console.log('\nAdd this to your environment (single-quote it, it contains $ characters):\n');
-console.log(`ADMIN_PASSWORD_HASH='${hashPassword(password)}'\n`);
+console.log('\nAdd this to your environment:\n');
+console.log(`ADMIN_PASSWORD_HASH=${hashPassword(password)}\n`);
+console.log('Store the password itself in a password manager. It cannot be recovered');
+console.log('from the hash, and there is no reset flow.\n');

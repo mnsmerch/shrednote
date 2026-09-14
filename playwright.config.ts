@@ -19,8 +19,9 @@ export const E2E_ADMIN_PASSWORD = 'e2e-admin-password-123';
 function scryptHash(password: string): string {
   const salt = randomBytes(16);
   const derived = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  // '.' matches SEPARATOR in src/lib/server/admin.ts.
   return ['scrypt', 16384, 8, 1, salt.toString('base64url'), derived.toString('base64url')].join(
-    '$',
+    '.',
   );
 }
 
