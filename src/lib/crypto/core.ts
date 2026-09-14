@@ -298,9 +298,13 @@ export async function encryptNote(plaintext: string, password = ''): Promise<Enc
   return { payload, fragment };
 }
 
-/** The ciphertext bundle returned by the server when a note is consumed. */
+/**
+ * The ciphertext bundle returned by the server when a note is consumed.
+ *
+ * There is no version field here: the format version travels in the URL
+ * fragment, where `decodeFragment` validates it before any of this is used.
+ */
 export interface SealedNote {
-  version: number;
   ciphertext: string;
   iv: string;
   wrappedKey: string;

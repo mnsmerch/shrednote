@@ -56,6 +56,14 @@ export interface NoteDescription {
   requireConfirm: boolean;
   label: string | null;
   expiresAt: Date;
+  /**
+   * PBKDF2 parameters. These are not secret - a salt and an iteration count
+   * are useless without the link fragment and the password - and the
+   * recipient's browser needs them to derive the password proof *before* the
+   * note is consumed, so that a typo does not destroy the message.
+   */
+  kdfSalt: string;
+  kdfIterations: number;
 }
 
 export interface SealedNote {
@@ -151,6 +159,8 @@ export async function describeNote(id: string): Promise<NoteDescription | null> 
       requireConfirm: true,
       label: true,
       expiresAt: true,
+      kdfSalt: true,
+      kdfIterations: true,
     },
   });
   return note ?? null;

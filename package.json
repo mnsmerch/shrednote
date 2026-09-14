@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "admin:hash": "node scripts/hash-admin-password.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.1",

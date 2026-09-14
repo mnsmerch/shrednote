@@ -17,6 +17,13 @@ export const MAX_CIPHERTEXT_LENGTH = 200_000;
 /** The non-sensitive reference label shown to the recipient. */
 export const MAX_LABEL_LENGTH = 60;
 
+/**
+ * Minimum PBKDF2 work factor the server accepts for a password-protected
+ * note. A client that tried to weaken its own key derivation is rejected.
+ * Mirrors PBKDF2_ITERATIONS in lib/crypto/core.ts.
+ */
+export const PBKDF2_MINIMUM_ITERATIONS = 600_000;
+
 export const MIN_PASSWORD_LENGTH = 4;
 export const MAX_PASSWORD_LENGTH = 256;
 

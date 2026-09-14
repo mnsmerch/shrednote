@@ -153,7 +153,8 @@ describe('consumeNote - single use', () => {
     const winners = results.filter((result) => result.status === 'ok');
     expect(winners).toHaveLength(1);
     expect(results.filter((result) => result.status === 'gone')).toHaveLength(39);
-    expect(winners[0]!.status === 'ok' && winners[0].note.ciphertext).toBe(input.ciphertext);
+    const winner = winners[0]!;
+    expect(winner.status === 'ok' && winner.note.ciphertext).toBe(input.ciphertext);
   });
 
   it('never returns the same ciphertext twice across repeated races', async () => {
@@ -164,7 +165,8 @@ describe('consumeNote - single use', () => {
       const results = await Promise.all(Array.from({ length: 12 }, () => consumeNote(id)));
       const successes = results.filter((r) => r.status === 'ok');
       expect(successes).toHaveLength(1);
-      const ciphertext = successes[0]!.status === 'ok' ? successes[0].note.ciphertext : '';
+      const success = successes[0]!;
+      const ciphertext = success.status === 'ok' ? success.note.ciphertext : '';
       expect(seen.has(ciphertext)).toBe(false);
       seen.add(ciphertext);
     }
