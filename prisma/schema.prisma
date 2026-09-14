@@ -1,0 +1,110 @@
+// ShredNote database schema.
+//
+// SECURITY INVARIANT: this schema is deliberately incapable of holding a
+// readable note. The server only ever receives ciphertext produced by the
+// sender's browser. The AES-256-GCM content key never leaves the client - it
+// travels inside the URL fragment (`#...`), which browsers never transmit.
+//
+// Nothing in this file may be extended with a plaintext body, an encryption
+// key, or a plaintext password without breaking that invariant.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A single self-destructing note.
+///
+/// Every secret-bearing column below is opaque to the server:
+///   ciphertext  - AES-256-GCM ciphertext of the note body
+///   wrappedKey  - the content key, itself encrypted under a key derived from
+///                 the URL fragment secret (and the optional password)
+/// Neither can be decrypted without the URL fragment, which the server never
+/// sees.
+model Note {
+  /// 22-character base64url identifier with 128 bits of entropy, generated
+  /// with a CSPRNG. Large enough that enumeration is not feasible.
+  id String @id
+
+  /// base64url( AES-256-GCM(contentKey, iv, plaintext) ). Emptied on consume.
+  ciphertext String
+  /// base64url 96-bit GCM nonce for `ciphertext`.
+  iv         String
+
+  /// base64url( AES-256-GCM(wrappingKey, wrapIv, contentKey) ) where
+  /// wrappingKey = PBKDF2(linkSecret [|| password], kdfSalt, kdfIterations).
+  wrappedKey    String
+  wrapIv        String
+  kdfSalt       String
+  kdfIterations Int
+
+  /// True when the sender added a password. Used only to tell the recipient's
+  /// browser to prompt; it reveals nothing about the password itself.
+  passwordProtected Boolean @default(false)
+
+  /// sha256( clientAuthToken ), where clientAuthToken is an HKDF branch of the
+  /// password-derived material that is cryptographically independent of the
+  /// key-wrapping branch. Lets the server reject wrong passwords *before*
+  /// consuming the note, without ever learning the password or gaining any
+  /// material that could unwrap the content key.
+  authTokenHash String?
+
+  /// Failed password attempts. The note self-destructs once this hits the
+  /// limit (see lib/notes/constants.ts) so the password cannot be ground down.
+  failedAttempts Int @default(0)
+
+  /// Show an interstitial ("Reveal & Shred") instead of revealing immediately.
+  requireConfirm Boolean @default(true)
+
+  /// Optional, explicitly NON-SENSITIVE reference label chosen by the sender.
+  /// Stored unencrypted by design and surfaced to the recipient; the UI warns
+  /// against putting anything private here.
+  label String?
+
+  /// Size of the stored ciphertext in bytes, for storage reporting only.
+  byteSize Int
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  /// Set atomically by the single-statement claim in lib/notes/service.ts.
+  /// Non-null means the note is gone forever.
+  consumedAt DateTime?
+  /// When the ciphertext columns were actually blanked.
+  purgedAt   DateTime?
+
+  @@index([expiresAt])
+  @@index([consumedAt])
+  @@map("notes")
+}
+
+/// Fixed-window counters for rate limiting. Keys are HMAC'd - no raw IP
+/// addresses are ever written to disk.
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int
+  expiresAt   DateTime
+
+  @@index([expiresAt])
+  @@map("rate_limits")
+}
+
+/// Aggregate, non-identifying counters powering the admin dashboard.
+/// Deliberately contains no note ids, no labels and no user data.
+model DailyStat {
+  day DateTime @id @db.Date
+
+  notesCreated           Int @default(0)
+  notesConsumed          Int @default(0)
+  notesExpired           Int @default(0)
+  noteLinkVisits         Int @default(0)
+  rateLimitHits          Int @default(0)
+  failedPasswordAttempts Int @default(0)
+  notesDestroyedByBrute  Int @default(0)
+
+  @@map("daily_stats")
+}

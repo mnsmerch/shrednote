@@ -1,0 +1,289 @@
+@import 'tailwindcss';
+
+/*
+ * ShredNote design tokens.
+ *
+ * Semantic variables are declared as plain CSS custom properties so they can
+ * be swapped wholesale by a media query, then mapped into Tailwind's theme so
+ * every utility (bg-surface, text-muted, border-line...) follows automatically.
+ *
+ * The palette is intentionally quiet: warm off-white paper, near-black ink and
+ * a single confident blue. Nothing neon, nothing "hacker".
+ */
+:root {
+  color-scheme: light;
+
+  --canvas: #fbfbfd;
+  --canvas-raised: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f5f5f8;
+  --surface-inset: #fafafc;
+
+  --ink: #101215;
+  --ink-soft: #3d4351;
+  --muted: #697084;
+  --faint: #9aa1b1;
+
+  --line: #e6e7ec;
+  --line-strong: #d3d5de;
+
+  --accent: #2f5fe0;
+  --accent-hover: #2850c4;
+  --accent-soft: #eef2fe;
+  --accent-ink: #1c3d99;
+
+  --positive: #0f7a52;
+  --positive-soft: #e8f6f0;
+  --warning: #9a5b00;
+  --warning-soft: #fdf4e5;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+
+  --shadow-card: 0 1px 2px rgb(16 18 21 / 0.04), 0 8px 24px -12px rgb(16 18 21 / 0.12);
+  --shadow-lift: 0 1px 2px rgb(16 18 21 / 0.05), 0 18px 40px -20px rgb(16 18 21 / 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --canvas: #0b0d10;
+    --canvas-raised: #12151a;
+    --surface: #14181e;
+    --surface-muted: #1a1f26;
+    --surface-inset: #10141a;
+
+    --ink: #f2f4f7;
+    --ink-soft: #c6ccd8;
+    --muted: #949cad;
+    --faint: #6c7485;
+
+    --line: #242a33;
+    --line-strong: #333a45;
+
+    --accent: #6f92f5;
+    --accent-hover: #87a4f8;
+    --accent-soft: #1a2137;
+    --accent-ink: #b9c9fd;
+
+    --positive: #4cc79a;
+    --positive-soft: #10241d;
+    --warning: #e0a44b;
+    --warning-soft: #251c0e;
+    --danger: #f4796d;
+    --danger-soft: #2a1412;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.5), 0 18px 40px -20px rgb(0 0 0 / 0.75);
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-raised: var(--canvas-raised);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-inset: var(--surface-inset);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+
+  --radius-card: 1.25rem;
+
+  /*
+   * System font stack: zero network requests, renders instantly, and looks
+   * native on every platform. Being fast is part of the product.
+   */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * Accessibility: a single, high-contrast focus ring used everywhere, only
+   * for keyboard users. Never remove this.
+   */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  textarea,
+  input,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+@layer components {
+  /* Shared surface for the composer, the reader and every content card. */
+  .sn-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .sn-prose {
+    color: var(--ink-soft);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+
+  .sn-prose h2 {
+    color: var(--ink);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 2.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .sn-prose h3 {
+    color: var(--ink);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sn-prose p + p,
+  .sn-prose ul,
+  .sn-prose ol {
+    margin-top: 1rem;
+  }
+
+  .sn-prose ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+
+  .sn-prose ol {
+    list-style: decimal;
+    padding-left: 1.25rem;
+  }
+
+  .sn-prose li + li {
+    margin-top: 0.375rem;
+  }
+
+  .sn-prose a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .sn-prose a:hover {
+    color: var(--accent-hover);
+  }
+
+  .sn-prose strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .sn-rise {
+    animation: sn-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .sn-fade {
+    animation: sn-fade 0.3s ease-out both;
+  }
+}
+
+@keyframes sn-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sn-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Respect users who have asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
