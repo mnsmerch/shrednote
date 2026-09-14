@@ -87,16 +87,22 @@ export default function PrivacyPage() {
 
       <h2>How long encrypted notes are kept</h2>
       <p>
-        An encrypted note is stored until it is read or until it expires, whichever comes first.
+        An encrypted note is readable until it is read or until it expires, whichever comes first.
         Senders choose an expiry between one hour and {site.maxNoteAgeDays} days; the default keeps
-        the link valid for up to {site.maxNoteAgeDays} days if nobody opens it. No note is stored
+        the link valid for up to {site.maxNoteAgeDays} days if nobody opens it. No note is readable
         beyond {site.maxNoteAgeDays} days under any setting.
       </p>
       <p>
         When a note is read, the ciphertext is erased in the same database operation that returns
         it. A small record with no message content remains briefly so that a second visit can be
         told the note is gone; that record is deleted by a scheduled cleanup job within seven days.
-        Expired notes that were never read are deleted outright.
+      </p>
+      <p>
+        A note that expires unread stops being readable at its expiry time — the server refuses it
+        from that moment on. Deleting the stored ciphertext is a separate step, done by the same
+        scheduled cleanup job, so the unreadable remains of an expired note can sit in the database
+        for up to a day after it expires before being removed. We would rather describe that
+        honestly than imply a precision the schedule does not have.
       </p>
       <p>
         Routine database backups, if taken, may briefly contain encrypted notes that have since been
