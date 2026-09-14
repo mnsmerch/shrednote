@@ -28,6 +28,9 @@ function clientIp(request: Request): string {
     const value = candidate?.trim();
     if (value) return value;
   }
+  // No forwarded header at all - direct connections in development, or a
+  // misconfigured proxy. Everyone shares one bucket, which fails safe (more
+  // limiting, not less) and is loud enough to notice.
   return 'unknown';
 }
 

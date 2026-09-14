@@ -13,7 +13,6 @@ export type StatColumn =
   | 'notesConsumed'
   | 'notesExpired'
   | 'noteLinkVisits'
-  | 'pageViews'
   | 'rateLimitHits'
   | 'failedPasswordAttempts'
   | 'notesDestroyedByBrute';
@@ -24,7 +23,6 @@ const COLUMNS: readonly StatColumn[] = [
   'notesConsumed',
   'notesExpired',
   'noteLinkVisits',
-  'pageViews',
   'rateLimitHits',
   'failedPasswordAttempts',
   'notesDestroyedByBrute',

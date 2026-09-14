@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 
 import { MoreOptions, type NoteOptions } from '@/components/composer/MoreOptions';
 import { SuccessPanel } from '@/components/composer/SuccessPanel';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ApiError, createNoteRequest } from '@/lib/client/api';
-import { CryptoUnsupportedError, encryptNote, isCryptoSupported } from '@/lib/crypto/core';
+import { useCryptoSupport } from '@/lib/client/browser';
+import { CryptoUnsupportedError, encryptNote } from '@/lib/crypto/core';
 import {
   DEFAULT_EXPIRY,
   MAX_MESSAGE_LENGTH,
@@ -43,15 +44,15 @@ export function Composer() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
-  const [supported, setSupported] = useState(true);
+  // Read during render rather than in an effect; `encryptionFailed` covers the
+  // rarer case where the APIs exist but refuse to work (for example a locked
+  // down enterprise policy).
+  const [encryptionFailed, setEncryptionFailed] = useState(false);
+  const supported = useCryptoSupport() && !encryptionFailed;
 
   const textareaId = useId();
   const counterId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    setSupported(isCryptoSupported());
-  }, []);
 
   const busy = status === 'encrypting';
   const remaining = MAX_MESSAGE_LENGTH - message.length;
@@ -93,7 +94,7 @@ export function Composer() {
     } catch (cause) {
       setStatus('idle');
       if (cause instanceof CryptoUnsupportedError) {
-        setSupported(false);
+        setEncryptionFailed(true);
         setError(null);
         return;
       }

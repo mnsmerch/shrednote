@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { ADMIN_COOKIE, isAdminConfigured, verifyAdminSession } from '@/lib/server/admin';
+import { getAdminOverview } from '@/lib/server/analytics';
 
 export const metadata: Metadata = {
   title: 'Admin',
@@ -19,6 +20,9 @@ export const dynamic = 'force-dynamic';
  * /api/admin/stats - the page rendering is a convenience, the API check is the
  * control. The dashboard shows aggregate counters only; there is no code path
  * from here to a note's contents.
+ *
+ * The first snapshot is read on the server so the dashboard renders populated
+ * rather than loading; the client then refreshes it on an interval.
  */
 export default async function AdminPage() {
   const store = await cookies();
@@ -26,7 +30,11 @@ export default async function AdminPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-12 sm:px-6 sm:py-16">
-      {authenticated ? <AdminDashboard /> : <AdminLogin configured={isAdminConfigured()} />}
+      {authenticated ? (
+        <AdminDashboard initial={await getAdminOverview()} />
+      ) : (
+        <AdminLogin configured={isAdminConfigured()} />
+      )}
     </div>
   );
 }

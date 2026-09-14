@@ -102,7 +102,6 @@ model DailyStat {
   notesConsumed          Int @default(0)
   notesExpired           Int @default(0)
   noteLinkVisits         Int @default(0)
-  pageViews              Int @default(0)
   rateLimitHits          Int @default(0)
   failedPasswordAttempts Int @default(0)
   notesDestroyedByBrute  Int @default(0)

@@ -30,19 +30,26 @@ export interface RateLimitResult {
 }
 
 /**
- * Limits tuned for anonymous use: generous enough that a human never notices,
- * tight enough that scripted abuse stops being worthwhile.
+ * Limits tuned for anonymous use.
+ *
+ * These are deliberately generous, because the bucket key is a client IP and
+ * whole offices, schools and mobile carriers share one. A limit that only
+ * suits a single person turns into an outage for everyone behind a NAT, which
+ * is a worse failure than the abuse it prevents. The tight, targeted control
+ * is elsewhere: 128-bit note ids, single-use consumption, and a ten-attempt
+ * per-note cap on passwords.
  */
 export const RATE_LIMITS = {
-  /** Creating notes. */
-  create: { limit: 20, windowSeconds: 60 * 10 } satisfies RateLimitRule,
+  /** Creating notes: six a minute sustained, which no human reaches. */
+  create: { limit: 60, windowSeconds: 60 * 10 } satisfies RateLimitRule,
   /** Looking up note metadata - the endpoint an enumeration attack would hit. */
-  lookup: { limit: 60, windowSeconds: 60 * 10 } satisfies RateLimitRule,
+  lookup: { limit: 120, windowSeconds: 60 * 10 } satisfies RateLimitRule,
   /** Actually consuming notes. */
-  consume: { limit: 30, windowSeconds: 60 * 10 } satisfies RateLimitRule,
-  /** Password attempts, per client. Per-note attempts are capped separately. */
-  password: { limit: 15, windowSeconds: 60 * 10 } satisfies RateLimitRule,
-  /** Admin sign-in attempts. */
+  consume: { limit: 60, windowSeconds: 60 * 10 } satisfies RateLimitRule,
+  /** Password attempts. The per-note cap in notes/constants.ts is the real
+   *  brute-force defence; this only slows bulk attempts across many notes. */
+  password: { limit: 20, windowSeconds: 60 * 10 } satisfies RateLimitRule,
+  /** Admin sign-in attempts. Deliberately strict: one operator, one password. */
   adminLogin: { limit: 8, windowSeconds: 60 * 15 } satisfies RateLimitRule,
 } as const;
 

@@ -33,6 +33,12 @@ type Phase =
 /**
  * The recipient side of ShredNote.
  *
+ * This component is rendered client-side only (see the `ssr: false` import in
+ * page.tsx). The note page has no server-rendered content by design: nothing
+ * about a note should exist in an HTML response before its recipient asks for
+ * it, and it lets us read the URL fragment during the first render instead of
+ * correcting the UI afterwards.
+ *
  * SECURITY NOTES
  *  - The decryption key is read from `window.location.hash`, which the browser
  *    never sends to a server. It is held in a ref, never in state that could be
@@ -44,20 +50,35 @@ type Phase =
  *    the key does not linger in history, screenshots or shoulder-surfing range.
  */
 export function NoteReader({ id }: { id: string }) {
-  const [phase, setPhase] = useState<Phase>('loading');
+  /*
+   * The key material. Read once on the first render: this component never runs
+   * on the server, so the fragment is available immediately and cannot change
+   * while the page is open. It is used only by the crypto layer and is never
+   * placed in a request, a URL we navigate to, or a logging call.
+   */
+  const [fragment] = useState(() => window.location.hash.replace(/^#/, ''));
+  const canDecrypt = isCryptoSupported();
+
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (!canDecrypt) return 'unsupported';
+    return fragment ? 'loading' : 'broken-link';
+  });
   const [description, setDescription] = useState<NoteDescriptionResponse | null>(null);
   const [message, setMessage] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
 
-  // The key material. A ref, so it never ends up in a React state snapshot.
-  const fragment = useRef<string>('');
   const consuming = useRef(false);
   const passwordId = useId();
 
+  /**
+   * Consumes and decrypts the note. `note` is passed in rather than read from
+   * state so the auto-reveal path can act on freshly fetched metadata without
+   * waiting for a re-render.
+   */
   const reveal = useCallback(
-    async (candidatePassword: string) => {
+    async (note: NoteDescriptionResponse, candidatePassword: string) => {
       // Guard against double submission: consuming twice destroys the note and
       // loses the message.
       if (consuming.current) return;
@@ -68,7 +89,7 @@ export function NoteReader({ id }: { id: string }) {
 
       try {
         let authToken: string | undefined;
-        if (description?.passwordProtected) {
+        if (note.passwordProtected) {
           if (candidatePassword.length === 0) {
             setPhase('password');
             setError('Enter the password the sender gave you.');
@@ -79,17 +100,17 @@ export function NoteReader({ id }: { id: string }) {
           // anything on its own. Computing it here - before consuming - is
           // what lets a wrong password be rejected without losing the note.
           authToken = await deriveAuthToken(
-            fragment.current,
+            fragment,
             candidatePassword,
-            description.kdfSalt,
-            description.kdfIterations,
+            note.kdfSalt,
+            note.kdfIterations,
           );
         }
 
-        const { note } = await consumeNoteRequest(id, authToken);
+        const sealed = (await consumeNoteRequest(id, authToken)).note;
 
         // The note is now gone from the server. Everything below is local.
-        const plaintext = await decryptNote(note, fragment.current, candidatePassword);
+        const plaintext = await decryptNote(sealed, fragment, candidatePassword);
 
         setMessage(plaintext);
         setPassword('');
@@ -118,7 +139,7 @@ export function NoteReader({ id }: { id: string }) {
             return;
           }
           setError(cause.message);
-          setPhase(description?.passwordProtected ? 'password' : 'confirm');
+          setPhase(note.passwordProtected ? 'password' : 'confirm');
           return;
         }
 
@@ -131,68 +152,56 @@ export function NoteReader({ id }: { id: string }) {
         }
 
         setError('Something went wrong while opening this note.');
-        setPhase(description?.passwordProtected ? 'password' : 'confirm');
+        setPhase(note.passwordProtected ? 'password' : 'confirm');
       } finally {
         consuming.current = false;
       }
     },
-    [description, id],
+    [id, fragment],
   );
 
-  // Load metadata and decide what to show.
+  // Fetch the note's metadata. This consumes nothing; it only decides which
+  // screen the recipient sees first.
   useEffect(() => {
-    if (!isCryptoSupported()) {
-      setPhase('unsupported');
-      return;
-    }
-
-    const hash = window.location.hash.replace(/^#/, '');
-    if (!hash) {
-      setPhase('broken-link');
-      setError(
-        'This link is missing the part after the # symbol, which holds the decryption key. It was probably shortened or cut off when it was copied.',
-      );
-      return;
-    }
-    fragment.current = hash;
+    if (!canDecrypt || !fragment) return;
 
     let cancelled = false;
     describeNoteRequest(id)
       .then((note) => {
         if (cancelled) return;
         setDescription(note);
+
         if (note.passwordProtected) {
           setPhase('password');
+        } else if (!note.requireConfirm) {
+          // The sender chose to skip the interstitial, so open it now. Doing
+          // this here rather than in a second effect keeps the decision in one
+          // place: we act the moment we learn what kind of note this is.
+          void reveal(note, '');
         } else {
           setPhase('confirm');
         }
       })
       .catch((cause: unknown) => {
         if (cancelled) return;
-        if (cause instanceof ApiError && cause.code === 'note_gone') {
-          setPhase('gone');
-          return;
+        if (!(cause instanceof ApiError) || cause.code !== 'note_gone') {
+          setError(
+            cause instanceof ApiError
+              ? cause.message
+              : 'We could not reach ShredNote. Check your connection and reload.',
+          );
         }
-        setError(
-          cause instanceof ApiError
-            ? cause.message
-            : 'We could not reach ShredNote. Check your connection and reload.',
-        );
         setPhase('gone');
       });
 
     return () => {
       cancelled = true;
     };
-  }, [id]);
-
-  // Sender chose not to require confirmation: open as soon as we know the note
-  // is real and unprotected.
-  useEffect(() => {
-    if (phase === 'confirm' && description && !description.requireConfirm) {
-      void reveal('');
-    }
-  }, [phase, description, reveal]);
+    // Every dependency is stable for the life of the page, so this runs once.
+    // That matters: re-running after a successful reveal would fetch metadata
+    // for a note that no longer exists and replace the message with the
+    // "already shredded" screen.
+  }, [id, fragment, canDecrypt, reveal]);
 
   if (phase === 'loading') {
     return (
@@ -237,7 +246,8 @@ export function NoteReader({ id }: { id: string }) {
           This link is incomplete.
         </h1>
         <Alert tone="danger" className="mt-4">
-          {error ?? 'The decryption key is missing from this link.'}
+          {error ??
+            'This link is missing the part after the # symbol, which holds the decryption key. It was probably shortened or cut off when it was copied.'}
         </Alert>
         <p className="mt-4 text-[0.9375rem] leading-relaxed text-muted">
           Ask the sender to send the full link, or to create a new note. A ShredNote link only works
@@ -292,7 +302,7 @@ export function NoteReader({ id }: { id: string }) {
             className="mt-7"
             onSubmit={(event) => {
               event.preventDefault();
-              void reveal(password);
+              if (description) void reveal(description, password);
             }}
           >
             <label htmlFor={passwordId} className="block text-[0.9375rem] font-medium text-ink">
@@ -340,7 +350,7 @@ export function NoteReader({ id }: { id: string }) {
                 {error}
               </Alert>
             ) : null}
-            <Button type="button" size="lg" fullWidth disabled={busy} onClick={() => void reveal('')}>
+            <Button type="button" size="lg" fullWidth disabled={busy} onClick={() => description && void reveal(description, '')}>
               {busy ? (
                 <>
                   <span

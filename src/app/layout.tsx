@@ -57,6 +57,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <SiteHeader />
+        {/*
+          ShredNote cannot work without JavaScript, because the encryption is
+          the JavaScript. Say so plainly instead of showing a dead interface.
+        */}
+        <noscript>
+          <div className="mx-auto max-w-3xl px-5 pt-6 sm:px-6">
+            <p className="rounded-xl bg-warning-soft px-4 py-3 text-[0.9375rem] leading-relaxed text-warning">
+              <strong className="font-semibold">JavaScript is required.</strong> ShredNote encrypts
+              and decrypts notes in your browser, so there is nothing for the server to do on its
+              own. Enable JavaScript for this site to create or open a note.
+            </p>
+          </div>
+        </noscript>
         <main id="main" className="flex-1">
           {children}
         </main>

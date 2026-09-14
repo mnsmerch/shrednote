@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "notes" (
     "id" TEXT NOT NULL,
@@ -38,7 +41,6 @@ CREATE TABLE "daily_stats" (
     "notesConsumed" INTEGER NOT NULL DEFAULT 0,
     "notesExpired" INTEGER NOT NULL DEFAULT 0,
     "noteLinkVisits" INTEGER NOT NULL DEFAULT 0,
-    "pageViews" INTEGER NOT NULL DEFAULT 0,
     "rateLimitHits" INTEGER NOT NULL DEFAULT 0,
     "failedPasswordAttempts" INTEGER NOT NULL DEFAULT 0,
     "notesDestroyedByBrute" INTEGER NOT NULL DEFAULT 0,
@@ -54,3 +56,4 @@ CREATE INDEX "notes_consumedAt_idx" ON "notes"("consumedAt");
 
 -- CreateIndex
 CREATE INDEX "rate_limits_expiresAt_idx" ON "rate_limits"("expiresAt");
+

@@ -8,9 +8,12 @@
 export const MAX_MESSAGE_LENGTH = 25_000;
 
 /**
- * Ciphertext is base64url of (plaintext bytes + 16 byte GCM tag), so it grows
- * by roughly 4/3. This bound is deliberately generous but finite so a single
- * request cannot fill the database.
+ * Upper bound on stored ciphertext.
+ *
+ * Worst case: 25,000 characters that each encode to 4 UTF-8 bytes = 100,000
+ * bytes, plus a 16-byte GCM tag, base64url encoded (4/3) = ~133,400
+ * characters. 200,000 leaves headroom while keeping a single request from
+ * filling the database.
  */
 export const MAX_CIPHERTEXT_LENGTH = 200_000;
 
@@ -24,7 +27,13 @@ export const MAX_LABEL_LENGTH = 60;
  */
 export const PBKDF2_MINIMUM_ITERATIONS = 600_000;
 
-export const MIN_PASSWORD_LENGTH = 4;
+/**
+ * For a password-protected note the password is the only secret a link holder
+ * does not already have. Once they consume the note they can attack it
+ * offline, so a four-character password would be worth very little even behind
+ * 600,000 PBKDF2 iterations. Eight is the floor we are willing to accept.
+ */
+export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 256;
 
 /**

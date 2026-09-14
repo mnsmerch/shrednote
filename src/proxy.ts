@@ -14,6 +14,11 @@ import { NextResponse, type NextRequest } from 'next/server';
  * stops the note reader from being framed and clickjacked into revealing a
  * message.
  *
+ * `https:` and `'unsafe-inline'` appear in `script-src` as the standard CSP
+ * Level 3 fallback: a browser that understands `'strict-dynamic'` ignores
+ * both, and only a browser too old to support nonces falls back to them. They
+ * do not weaken the policy for anything current.
+ *
  * NOTE: `style-src` allows 'unsafe-inline'. Nonced styles are incompatible
  * with React's inline style attributes, and inline CSS cannot execute script.
  *

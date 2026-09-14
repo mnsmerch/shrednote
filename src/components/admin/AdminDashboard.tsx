@@ -89,8 +89,8 @@ function DailyChart({ data }: { data: AdminOverview['daily'] }) {
   );
 }
 
-export function AdminDashboard() {
-  const [data, setData] = useState<AdminOverview | null>(null);
+export function AdminDashboard({ initial }: { initial: AdminOverview }) {
+  const [data, setData] = useState<AdminOverview>(initial);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -115,8 +115,9 @@ export function AdminDashboard() {
     }
   }, [router]);
 
+  // The first snapshot arrives as a prop from the server, so this effect only
+  // schedules refreshes - it never fetches on mount.
   useEffect(() => {
-    void load();
     const interval = setInterval(() => void load(), 60_000);
     return () => clearInterval(interval);
   }, [load]);
@@ -132,10 +133,6 @@ export function AdminDashboard() {
         {error}
       </Alert>
     );
-  }
-
-  if (!data) {
-    return <p className="text-muted">Loading…</p>;
   }
 
   const consumptionRate =

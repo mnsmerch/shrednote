@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { NoteReader } from '@/components/reader/NoteReader';
+import { NoteReaderClient } from './NoteReaderClient';
 
 /**
  * The recipient's page.
@@ -22,7 +22,7 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-12 sm:px-6 sm:py-20">
-      <NoteReader id={id} />
+      <NoteReaderClient id={id} />
     </div>
   );
 }

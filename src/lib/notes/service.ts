@@ -197,8 +197,18 @@ export async function consumeNote(id: string, authToken?: string): Promise<Consu
       return { status: 'password_required' };
     }
     if (!secureEquals(hashAuthToken(authToken), gate.authTokenHash)) {
-      const attempts = gate.failedAttempts + 1;
       void bump('failedPasswordAttempts');
+
+      // Increment in the database rather than from the value we read above:
+      // two simultaneous wrong guesses would otherwise both write the same
+      // number, and the attempt cap could be overshot.
+      const counted = await prisma.$queryRaw<Array<{ failedAttempts: number }>>`
+        UPDATE "notes"
+        SET "failedAttempts" = "failedAttempts" + 1
+        WHERE "id" = ${id} AND "consumedAt" IS NULL
+        RETURNING "failedAttempts"::int AS "failedAttempts"
+      `;
+      const attempts = counted[0]?.failedAttempts ?? gate.failedAttempts + 1;
 
       if (attempts >= MAX_PASSWORD_ATTEMPTS) {
         // Destroy rather than lock: a locked note is a note an attacker can
@@ -206,13 +216,7 @@ export async function consumeNote(id: string, authToken?: string): Promise<Consu
         await prisma.note
           .updateMany({
             where: { id, consumedAt: null },
-            data: {
-              consumedAt: now,
-              purgedAt: now,
-              ciphertext: '',
-              wrappedKey: '',
-              failedAttempts: attempts,
-            },
+            data: { consumedAt: now, purgedAt: now, ciphertext: '', wrappedKey: '' },
           })
           .catch(() => undefined);
         log.warn({ event: 'note_destroyed_brute_force', attempts });
@@ -220,9 +224,6 @@ export async function consumeNote(id: string, authToken?: string): Promise<Consu
         return { status: 'destroyed' };
       }
 
-      await prisma.note
-        .updateMany({ where: { id, consumedAt: null }, data: { failedAttempts: attempts } })
-        .catch(() => undefined);
       return {
         status: 'invalid_password',
         attemptsRemaining: Math.max(0, MAX_PASSWORD_ATTEMPTS - attempts),

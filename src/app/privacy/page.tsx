@@ -130,9 +130,12 @@ export default function PrivacyPage() {
         place, and nothing in our stack attempts to capture them from the client.
       </p>
       <p>
-        Your hosting provider and ours may keep short-lived network-level logs, including IP
-        addresses, as part of normal operation. That is outside our application, and we keep it to
-        the minimum our provider allows.
+        Your hosting provider and ours may keep short-lived network-level logs as part of normal
+        operation. Those are outside our application and typically record the IP address and the
+        requested path — which, for a note, includes the note&rsquo;s identifier. They never contain
+        the fragment, so such a log could at most reveal that a note existed or let someone destroy
+        an unread one; it could never make a note readable. We keep provider logging to the minimum
+        our platform allows.
       </p>
 
       <h2>Analytics and trackers</h2>
