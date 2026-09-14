@@ -155,7 +155,8 @@ cd shrednote
 npm install
 
 cp .env.example .env.local
-# Fill in DATABASE_URL and generate a SERVER_SECRET:
+# Fill in DATABASE_URL and DIRECT_DATABASE_URL (the same value locally, unless
+# your Postgres sits behind a pooler), then generate a SERVER_SECRET:
 #   openssl rand -base64 48
 
 npx prisma migrate deploy
@@ -177,7 +178,8 @@ npm run admin:hash
 
 | Variable               | Required   | Purpose                                                          |
 | ---------------------- | ---------- | ---------------------------------------------------------------- |
-| `DATABASE_URL`         | yes        | PostgreSQL connection string                                     |
+| `DATABASE_URL`         | yes        | PostgreSQL connection string used at runtime (pooled, if offered) |
+| `DIRECT_DATABASE_URL`  | yes        | Direct, unpooled connection used for migrations only             |
 | `NEXT_PUBLIC_SITE_URL` | yes        | Canonical origin, used for links, canonicals and the sitemap     |
 | `SERVER_SECRET`        | yes        | 32+ random bytes; HMACs rate-limit keys and signs admin sessions |
 | `ADMIN_PASSWORD_HASH`  | admin only | scrypt hash from `npm run admin:hash`                            |
@@ -206,7 +208,9 @@ disposable:
 
 ```bash
 createdb shrednote_test
-DATABASE_URL=postgresql://localhost:5432/shrednote_test npx prisma migrate deploy
+DATABASE_URL=postgresql://localhost:5432/shrednote_test \
+DIRECT_DATABASE_URL=postgresql://localhost:5432/shrednote_test \
+  npx prisma migrate deploy
 npm test
 ```
 
@@ -230,9 +234,30 @@ What the suites cover:
 
 Designed for Vercel plus any managed PostgreSQL (Neon, Supabase, RDS).
 
-1. Create the database and run `npx prisma migrate deploy` against it.
+1. Create the database.
 2. Set the environment variables above in your hosting provider.
-3. Deploy. `npm run build` runs `prisma generate` first.
+3. Deploy. The build is `prisma generate && prisma migrate deploy && next build`,
+   so the schema is created or updated as part of every deployment. A build
+   against an empty database provisions it; a build against an up-to-date one
+   is a no-op.
+
+**Why `DIRECT_DATABASE_URL` is separate.** Serverless functions open many
+short-lived connections, so `DATABASE_URL` should be your provider's pooled
+endpoint. Migrations cannot use it: a transaction-mode pooler can neither run
+DDL nor hold the advisory lock Prisma uses to serialise concurrent migrations.
+`DIRECT_DATABASE_URL` must therefore be the direct endpoint — for Neon, the
+host without `-pooler`; for Supabase, port 5432 rather than 6543. With a plain
+Postgres and no pooler, set both to the same value.
+
+**Preview deployments.** Migrating during the build means a preview deployment
+migrates whatever database its environment variables point at. If you use
+Vercel preview environments, scope `DATABASE_URL` and `DIRECT_DATABASE_URL` to
+the Production environment and give previews their own database, or the two
+will share a schema.
+
+If a deployment fails during `prisma migrate deploy`, the build stops before
+`next build` and the previous deployment stays live — the schema and the code
+never drift apart.
 
 `vercel.json` schedules the cleanup job hourly. On another platform, call the
 same endpoint from your scheduler:

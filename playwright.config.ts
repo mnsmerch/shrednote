@@ -59,6 +59,9 @@ export default defineConfig({
       DATABASE_URL:
         process.env.E2E_DATABASE_URL ??
         'postgresql://postgres:postgres@localhost:5432/shrednote_test',
+      DIRECT_DATABASE_URL:
+        process.env.E2E_DATABASE_URL ??
+        'postgresql://postgres:postgres@localhost:5432/shrednote_test',
       NEXT_PUBLIC_SITE_URL: BASE_URL,
       SERVER_SECRET: 'e2e-server-secret-value-that-is-long-enough-000000',
       CRON_SECRET: 'e2e-cron-secret',

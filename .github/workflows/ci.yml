@@ -24,6 +24,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shrednote_test
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shrednote_test
       NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3210
       SERVER_SECRET: ci-server-secret-value-that-is-long-enough-000000
       CRON_SECRET: ci-cron-secret

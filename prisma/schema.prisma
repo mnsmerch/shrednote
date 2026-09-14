@@ -15,6 +15,13 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+
+  // Migrations run against a direct connection. Managed Postgres providers
+  // (Neon, Supabase) put a transaction-mode pooler behind DATABASE_URL, and a
+  // pooler in that mode cannot run DDL or hold the advisory lock Prisma uses
+  // to serialise migrations. For a plain Postgres with no pooler, set this to
+  // the same value as DATABASE_URL.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 /// A single self-destructing note.
