@@ -119,7 +119,7 @@ export default function HomePage() {
         </div>
 
         <p className="mt-5 text-center text-[0.875rem] text-faint">
-          Free. No account, no email, no tracking on note pages.
+          Free. No account, no email, no ad trackers.
         </p>
       </section>
 

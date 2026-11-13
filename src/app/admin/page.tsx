@@ -5,6 +5,7 @@ import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { ADMIN_COOKIE, isAdminConfigured, verifyAdminSession } from '@/lib/server/admin';
 import { getAdminOverview } from '@/lib/server/analytics';
+import { isProduction } from '@/lib/server/env';
 
 export const metadata: Metadata = {
   title: 'Admin',
@@ -33,7 +34,9 @@ export default async function AdminPage() {
       {authenticated ? (
         <AdminDashboard initial={await getAdminOverview()} />
       ) : (
-        <AdminLogin configured={isAdminConfigured()} />
+        // The "no password configured" hint helps during setup, but in
+        // production it would tell any visitor how the site is configured.
+        <AdminLogin configured={isAdminConfigured() || isProduction()} />
       )}
     </div>
   );

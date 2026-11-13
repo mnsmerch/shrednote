@@ -72,6 +72,15 @@ describe('GET /api/cron/cleanup', () => {
     expect(await prisma.note.findUnique({ where: { id: expired.id } })).toBeNull();
     expect(await prisma.note.findUnique({ where: { id: live.id } })).not.toBeNull();
   });
+
+  it('records that it ran, so the dashboard can tell when the schedule stops', async () => {
+    expect((await getAdminOverview()).health.lastCleanupDay).toBeNull();
+
+    await cleanupRoute(cronRequest('test-cron-secret'));
+
+    const today = new Date().toISOString().slice(0, 10);
+    expect((await getAdminOverview()).health.lastCleanupDay).toBe(today);
+  });
 });
 
 describe('rate limiter', () => {

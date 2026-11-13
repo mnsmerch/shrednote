@@ -6,8 +6,12 @@
  * `authTokenHash` or `label`, and none return a note id. The dashboard is
  * therefore incapable of exposing note contents even to the site owner -
  * which is the only honest way to run a product like this.
+ *
+ * Visitor figures come from lib/server/presence, which has its own boundary:
+ * grouped counts by coarse place, never an individual visitor.
  */
 import { prisma } from './db';
+import { getLiveVisitors, getVisitSummary, type LiveVisitors, type VisitPlace } from './presence';
 
 export interface DailyPoint {
   day: string;
@@ -17,6 +21,15 @@ export interface DailyPoint {
   visits: number;
   rateLimited: number;
   failedPasswords: number;
+  /** Site visits that day, from the presence heartbeat. */
+  siteVisits: number;
+}
+
+export interface NoteTotals {
+  created: number;
+  consumed: number;
+  expired: number;
+  destroyedByBruteForce: number;
 }
 
 export interface AdminOverview {
@@ -28,6 +41,15 @@ export interface AdminOverview {
     rateLimitEvents: number;
     failedPasswordAttempts: number;
     noteLinkVisits: number;
+  };
+  /** Since the counters began, not just the last 30 days. */
+  allTime: NoteTotals;
+  /** Who is on the site now, grouped by place. */
+  visitors: LiveVisitors;
+  visits: {
+    today: number;
+    last30Days: number;
+    places: VisitPlace[];
   };
   live: {
     /** Notes currently waiting to be read. */
@@ -53,6 +75,8 @@ export interface AdminOverview {
     unscrubbedConsumed: number;
     rateLimitBuckets: number;
     serverTime: string;
+    /** UTC day (YYYY-MM-DD) the cleanup job last completed, if it ever has. */
+    lastCleanupDay: string | null;
   };
   daily: DailyPoint[];
 }
@@ -80,6 +104,10 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     rateLimitBuckets,
     sizeRows,
     ciphertextBytes,
+    allTime,
+    lastCleanup,
+    visitors,
+    visitSummary,
   ] = await Promise.all([
     prisma.dailyStat.findMany({
       where: { day: { gte: new Date(dayKey(since)) } },
@@ -104,6 +132,21 @@ export async function getAdminOverview(): Promise<AdminOverview> {
              pg_database_size(current_database()) AS database
     `,
     prisma.note.aggregate({ _sum: { byteSize: true }, where: { purgedAt: null } }),
+    prisma.dailyStat.aggregate({
+      _sum: {
+        notesCreated: true,
+        notesConsumed: true,
+        notesExpired: true,
+        notesDestroyedByBrute: true,
+      },
+    }),
+    prisma.dailyStat.findFirst({
+      where: { cleanupRuns: { gt: 0 } },
+      orderBy: { day: 'desc' },
+      select: { day: true },
+    }),
+    getLiveVisitors(now),
+    getVisitSummary(now, DAYS),
   ]);
 
   const totals = stats.reduce(
@@ -141,6 +184,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       visits: row?.noteLinkVisits ?? 0,
       rateLimited: row?.rateLimitHits ?? 0,
       failedPasswords: row?.failedPasswordAttempts ?? 0,
+      siteVisits: visitSummary.byDay[day] ?? 0,
     });
   }
 
@@ -148,6 +192,18 @@ export async function getAdminOverview(): Promise<AdminOverview> {
 
   return {
     totals,
+    allTime: {
+      created: allTime._sum.notesCreated ?? 0,
+      consumed: allTime._sum.notesConsumed ?? 0,
+      expired: allTime._sum.notesExpired ?? 0,
+      destroyedByBruteForce: allTime._sum.notesDestroyedByBrute ?? 0,
+    },
+    visitors,
+    visits: {
+      today: visitSummary.today,
+      last30Days: visitSummary.last30Days,
+      places: visitSummary.places,
+    },
     live: {
       pending,
       tombstones,
@@ -166,6 +222,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       unscrubbedConsumed: unscrubbed,
       rateLimitBuckets,
       serverTime: now.toISOString(),
+      lastCleanupDay: lastCleanup ? dayKey(lastCleanup.day) : null,
     },
     daily,
   };

@@ -27,6 +27,12 @@ test.describe('admin dashboard', () => {
     expect(await response.text()).not.toContain('notesCreated');
   });
 
+  test('the live visitors API refuses unauthenticated callers', async ({ request }) => {
+    const response = await request.get('/api/admin/live');
+    expect(response.status()).toBe(401);
+    expect(await response.text()).not.toContain('places');
+  });
+
   test('signs in, shows aggregate metrics and no note content, then signs out', async ({
     page,
     context,
@@ -49,6 +55,14 @@ test.describe('admin dashboard', () => {
     await expect(admin.getByText('Awaiting a reader')).toBeVisible();
     await expect(admin.getByText('Rate limit events')).toBeVisible();
     await expect(admin.getByText('Ciphertext stored')).toBeVisible();
+
+    // The visitor who just created that note is counted as online, and the
+    // all-time totals reflect the note.
+    await expect(admin.getByRole('heading', { name: 'Live now' })).toBeVisible();
+    await expect(admin.getByTestId('online-count')).not.toHaveText('0');
+    await expect(admin.getByText('Waiting to be opened')).toBeVisible();
+    await expect(admin.getByText('Where visitors come from')).toBeVisible();
+    await expect(admin.getByText('Last cleanup run')).toBeVisible();
 
     // The dashboard cannot show note contents, labels or identifiers.
     const rendered = await admin.content();

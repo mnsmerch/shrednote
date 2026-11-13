@@ -141,7 +141,8 @@ place where request metadata could accumulate. If you outgrow it, reimplement
 `consume()` in `src/lib/server/rate-limit.ts` — nothing else needs to change.
 
 Runtime dependencies: `next`, `react`, `react-dom`, `@prisma/client`,
-`@prisma/adapter-pg`, `zod`.
+`@prisma/adapter-pg`, `zod`, and `cobe` (the globe on the admin dashboard,
+loaded only there).
 That is the complete list.
 
 ---
@@ -292,22 +293,34 @@ cookie is marked `Secure` outside development.
 
 ### Behind a proxy
 
-Rate limiting reads the client IP from `x-vercel-forwarded-for`, `x-real-ip`,
-then the left-most `x-forwarded-for` entry. That is correct on platforms that
-overwrite those headers at the edge. If yours does not, adjust `clientIp()` in
-`src/lib/server/request.ts` before relying on the limits.
+On Vercel, rate limiting reads the client IP from `x-vercel-forwarded-for`
+and `x-real-ip` only, which Vercel's edge sets and a client cannot forge.
+Anywhere else it uses the left-most `x-forwarded-for` entry, which is only
+trustworthy if your proxy overwrites that header. If yours appends instead,
+adjust `clientIp()` in `src/lib/server/request.ts` before relying on the
+limits. The visitor location shown on the dashboard comes from Vercel's
+`x-vercel-ip-*` headers and reads as "Unknown location" on other hosts.
 
 ---
 
 ## Operations
 
-- **Admin dashboard** — `/admin`. Shows notes created, read and expired, daily
-  volume, storage usage, rate-limit events and database health. It is built on
+- **Admin dashboard** — `/admin`. Shows who is on the site now and where
+  (on a globe and by region), all-time and 30-day note totals, notes waiting
+  to be opened, daily volume, storage usage, rate-limit events, database
+  health and when cleanup last ran. It is built on
   `src/lib/server/analytics.ts`, which selects no note contents, keys, labels
   or identifiers — the dashboard cannot leak a note because the data is not in
   the query.
+- **Visitor counts** — `src/lib/server/presence.ts`. Pages send a contentless
+  heartbeat while open; the server keeps a daily-rotating digest of the IP
+  (never the address), a country and region code, and coordinates rounded to a
+  whole degree, for about 30 minutes. Note reading pages send nothing, and
+  visitors sending Global Privacy Control or Do Not Track are not counted. The
+  privacy page describes this in full; keep the two in step.
 - **Cleanup** — deletes expired notes, removes consumed tombstones after seven
-  days, and scrubs any consumed row that still holds ciphertext (for example
+  days, prunes ended visitor records, and scrubs any consumed row that still
+  holds ciphertext (for example
   after a process died mid-request). The dashboard warns if that count grows,
   which means the schedule is not running.
 

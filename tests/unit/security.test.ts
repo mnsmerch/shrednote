@@ -138,6 +138,21 @@ describe('admin sessions', () => {
     expect(verifyAdminSession('')).toBe(false);
   });
 
+  it('stops working when the admin password is changed', () => {
+    const before = process.env.ADMIN_PASSWORD_HASH;
+    try {
+      process.env.ADMIN_PASSWORD_HASH = hashAdminPassword('first-password');
+      const { token } = createAdminSession();
+      expect(verifyAdminSession(token)).toBe(true);
+
+      process.env.ADMIN_PASSWORD_HASH = hashAdminPassword('second-password');
+      expect(verifyAdminSession(token)).toBe(false);
+    } finally {
+      if (before === undefined) delete process.env.ADMIN_PASSWORD_HASH;
+      else process.env.ADMIN_PASSWORD_HASH = before;
+    }
+  });
+
   it('expires', () => {
     const { token } = createAdminSession();
     const afterExpiry = Date.now() + (ADMIN_SESSION_SECONDS + 60) * 1000;

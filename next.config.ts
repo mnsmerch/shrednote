@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 /**
  * Security headers applied to every response.
  *
- * Content-Security-Policy is set per-request in src/middleware.ts because it
+ * Content-Security-Policy is set per-request in src/proxy.ts because it
  * carries a nonce; everything here is static.
  */
 const securityHeaders = [

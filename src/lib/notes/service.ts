@@ -196,19 +196,32 @@ export async function consumeNote(id: string, authToken?: string): Promise<Consu
     if (!authToken) {
       return { status: 'password_required' };
     }
-    if (!secureEquals(hashAuthToken(authToken), gate.authTokenHash)) {
-      void bump('failedPasswordAttempts');
 
-      // Increment in the database rather than from the value we read above:
-      // two simultaneous wrong guesses would otherwise both write the same
-      // number, and the attempt cap could be overshot.
-      const counted = await prisma.$queryRaw<Array<{ failedAttempts: number }>>`
-        UPDATE "notes"
-        SET "failedAttempts" = "failedAttempts" + 1
-        WHERE "id" = ${id} AND "consumedAt" IS NULL
-        RETURNING "failedAttempts"::int AS "failedAttempts"
-      `;
-      const attempts = counted[0]?.failedAttempts ?? gate.failedAttempts + 1;
+    // Reserve an attempt *before* looking at the guess. The cap is enforced
+    // by this statement's WHERE clause, so however many guesses arrive at
+    // once, at most MAX_PASSWORD_ATTEMPTS of them are ever compared. Counting
+    // only after a wrong comparison would let a burst of parallel guesses all
+    // be evaluated before the first increment landed.
+    const reserved = await prisma.$queryRaw<
+      Array<{ authTokenHash: string | null; failedAttempts: number }>
+    >`
+      UPDATE "notes"
+      SET "failedAttempts" = "failedAttempts" + 1
+      WHERE "id" = ${id}
+        AND "consumedAt" IS NULL
+        AND "expiresAt" > ${now}
+        AND "failedAttempts" < ${MAX_PASSWORD_ATTEMPTS}
+      RETURNING "authTokenHash", "failedAttempts"::int AS "failedAttempts"
+    `;
+    const slot = reserved[0];
+    if (!slot || !slot.authTokenHash) {
+      // Consumed, expired or out of attempts since the pre-check.
+      return { status: 'gone' };
+    }
+
+    if (!secureEquals(hashAuthToken(authToken), slot.authTokenHash)) {
+      void bump('failedPasswordAttempts');
+      const attempts = slot.failedAttempts;
 
       if (attempts >= MAX_PASSWORD_ATTEMPTS) {
         // Destroy rather than lock: a locked note is a note an attacker can
@@ -216,7 +229,14 @@ export async function consumeNote(id: string, authToken?: string): Promise<Consu
         await prisma.note
           .updateMany({
             where: { id, consumedAt: null },
-            data: { consumedAt: now, purgedAt: now, ciphertext: '', wrappedKey: '' },
+            data: {
+              consumedAt: now,
+              purgedAt: now,
+              ciphertext: '',
+              wrappedKey: '',
+              label: null,
+              authTokenHash: null,
+            },
           })
           .catch(() => undefined);
         log.warn({ event: 'note_destroyed_brute_force', attempts });
@@ -254,13 +274,15 @@ export async function consumeNote(id: string, authToken?: string): Promise<Consu
     SET "consumedAt" = ${now},
         "purgedAt" = ${now},
         "ciphertext" = '',
-        "wrappedKey" = ''
+        "wrappedKey" = '',
+        "label" = NULL,
+        "authTokenHash" = NULL
     FROM "notes" AS old
     WHERE n."id" = old."id"
       AND n."id" = ${id}
       AND n."consumedAt" IS NULL
       AND n."expiresAt" > ${now}
-      AND (n."authTokenHash" IS NULL OR n."authTokenHash" = ${expectedHash})
+      AND (old."authTokenHash" IS NULL OR old."authTokenHash" = ${expectedHash})
     RETURNING
       old."ciphertext" AS "ciphertext",
       old."iv" AS "iv",
@@ -300,7 +322,7 @@ export interface CleanupResult {
 export async function cleanupNotes(now = new Date()): Promise<CleanupResult> {
   const scrubbed = await prisma.note.updateMany({
     where: { consumedAt: { not: null }, purgedAt: null },
-    data: { ciphertext: '', wrappedKey: '', purgedAt: now },
+    data: { ciphertext: '', wrappedKey: '', label: null, authTokenHash: null, purgedAt: now },
   });
 
   const expired = await prisma.note.deleteMany({

@@ -64,7 +64,7 @@ const AUTH_TOKEN_BYTES = 32;
 /**
  * PBKDF2 work factor for password-protected notes. High enough to make
  * guessing expensive, low enough to stay under ~1s on a mid-range phone.
- * Exceeds the OWASP 2023 recommendation of 600,000 for PBKDF2-HMAC-SHA256.
+ * Matches the OWASP 2023 recommendation of 600,000 for PBKDF2-HMAC-SHA256.
  */
 export const PBKDF2_ITERATIONS = 600_000;
 

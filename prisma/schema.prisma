@@ -38,7 +38,8 @@ model Note {
   iv         String
 
   /// base64url( AES-256-GCM(wrappingKey, wrapIv, contentKey) ) where
-  /// wrappingKey = PBKDF2(linkSecret [|| password], kdfSalt, kdfIterations).
+  /// wrappingKey = HKDF(linkSecret || PBKDF2(password, kdfSalt, kdfIterations)),
+  /// where the PBKDF2 part is empty for a note without a password.
   wrappedKey    String
   wrapIv        String
   kdfSalt       String
@@ -107,6 +108,42 @@ model DailyStat {
   rateLimitHits          Int @default(0)
   failedPasswordAttempts Int @default(0)
   notesDestroyedByBrute  Int @default(0)
+  /// Times the scheduled cleanup job completed. Lets the dashboard notice a
+  /// schedule that has silently stopped.
+  cleanupRuns            Int @default(0)
 
   @@map("daily_stats")
+}
+
+/// Who is on the site right now, for the owner's dashboard.
+///
+/// PRIVACY: a row holds a keyed digest of the visitor's IP address (the same
+/// construction as rate limiting, never the address itself), a country and
+/// region code, and coordinates rounded to a whole degree - roughly 100 km.
+/// It holds no path, no note id, no cookie and no user agent, and it is
+/// deleted minutes after the visitor's last heartbeat. Note reading pages do
+/// not send heartbeats at all.
+model Presence {
+  key      String   @id
+  country  String   @db.VarChar(2)
+  region   String   @default("") @db.VarChar(8)
+  /// Whole degrees. Null when the platform supplied no coordinates.
+  lat      Int?     @db.SmallInt
+  lon      Int?     @db.SmallInt
+  lastSeen DateTime @default(now())
+
+  @@index([lastSeen])
+  @@map("presence")
+}
+
+/// Visits per day and place. Aggregate integers only: a visit is counted when
+/// a presence row is first created, and nothing here refers back to it.
+model VisitDaily {
+  day     DateTime @db.Date
+  country String   @db.VarChar(2)
+  region  String   @default("") @db.VarChar(8)
+  visits  Int      @default(0)
+
+  @@id([day, country, region])
+  @@map("visit_daily")
 }

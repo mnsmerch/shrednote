@@ -15,7 +15,8 @@ export type StatColumn =
   | 'noteLinkVisits'
   | 'rateLimitHits'
   | 'failedPasswordAttempts'
-  | 'notesDestroyedByBrute';
+  | 'notesDestroyedByBrute'
+  | 'cleanupRuns';
 
 /** Whitelist guards the identifier interpolated into the SQL below. */
 const COLUMNS: readonly StatColumn[] = [
@@ -26,6 +27,7 @@ const COLUMNS: readonly StatColumn[] = [
   'rateLimitHits',
   'failedPasswordAttempts',
   'notesDestroyedByBrute',
+  'cleanupRuns',
 ];
 
 function today(): string {

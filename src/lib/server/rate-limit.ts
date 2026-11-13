@@ -19,6 +19,13 @@ export interface RateLimitRule {
   limit: number;
   /** Window length in seconds. */
   windowSeconds: number;
+  /**
+   * What to do when the database cannot be reached. Most limits fail open so
+   * an outage does not take the site down with it; limits that guard a guess
+   * at a secret set this, because their check does not need the database and
+   * would otherwise become unlimited exactly when the limiter is blind.
+   */
+  failClosed?: boolean;
 }
 
 export interface RateLimitResult {
@@ -48,9 +55,9 @@ export const RATE_LIMITS = {
   consume: { limit: 60, windowSeconds: 60 * 10 } satisfies RateLimitRule,
   /** Password attempts. The per-note cap in notes/constants.ts is the real
    *  brute-force defence; this only slows bulk attempts across many notes. */
-  password: { limit: 20, windowSeconds: 60 * 10 } satisfies RateLimitRule,
+  password: { limit: 20, windowSeconds: 60 * 10, failClosed: true } satisfies RateLimitRule,
   /** Admin sign-in attempts. Deliberately strict: one operator, one password. */
-  adminLogin: { limit: 8, windowSeconds: 60 * 15 } satisfies RateLimitRule,
+  adminLogin: { limit: 8, windowSeconds: 60 * 15, failClosed: true } satisfies RateLimitRule,
 } as const;
 
 export async function consume(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
@@ -90,6 +97,9 @@ export async function consume(key: string, rule: RateLimitRule): Promise<RateLim
     // endpoints have independent protections (128-bit ids, per-note attempt
     // caps, single-use consumption).
     log.error({ event: 'rate_limit_unavailable' });
+    if (rule.failClosed) {
+      return { allowed: false, limit: rule.limit, remaining: 0, retryAfter: 30 };
+    }
     return { allowed: true, limit: rule.limit, remaining: rule.limit, retryAfter: 0 };
   }
 }

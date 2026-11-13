@@ -111,10 +111,26 @@ export async function readJsonBody(request: Request, maxBytes: number): Promise<
   if (Number.isFinite(declared) && declared > maxBytes) {
     throw new PayloadTooLargeError();
   }
-  const text = await request.text();
-  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
-    throw new PayloadTooLargeError();
+
+  // Content-Length can be absent or wrong, so the cap is enforced again while
+  // reading: the stream is abandoned as soon as it runs past the limit rather
+  // than being buffered whole and measured afterwards.
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  const reader = request.body?.getReader();
+  if (reader) {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new PayloadTooLargeError();
+      }
+      chunks.push(value);
+    }
   }
+  const text = Buffer.concat(chunks).toString('utf8');
   try {
     return JSON.parse(text) as unknown;
   } catch {

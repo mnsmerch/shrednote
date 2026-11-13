@@ -13,17 +13,17 @@ import { serverSecret } from './env';
 /**
  * Extracts the client IP.
  *
- * Only the left-most entry of `x-forwarded-for` is used, and only because
- * Vercel and comparable platforms overwrite that header at the edge. Behind a
- * proxy that does not, set TRUSTED_PROXY_HEADER accordingly.
+ * On Vercel only the headers its edge sets and overwrites are trusted, so a
+ * client cannot choose its own bucket by sending a forged `x-forwarded-for`.
+ * Elsewhere (local development, tests, a self-hosted proxy) the left-most
+ * `x-forwarded-for` entry is used; that is only as trustworthy as the proxy
+ * in front, which must overwrite the header rather than append to it.
  */
 function clientIp(request: Request): string {
   const headers = request.headers;
-  const candidates = [
-    headers.get('x-vercel-forwarded-for'),
-    headers.get('x-real-ip'),
-    headers.get('x-forwarded-for')?.split(',')[0],
-  ];
+  const candidates = process.env.VERCEL
+    ? [headers.get('x-vercel-forwarded-for')?.split(',')[0], headers.get('x-real-ip')]
+    : [headers.get('x-forwarded-for')?.split(',')[0], headers.get('x-real-ip')];
   for (const candidate of candidates) {
     const value = candidate?.trim();
     if (value) return value;
@@ -34,10 +34,15 @@ function clientIp(request: Request): string {
   return 'unknown';
 }
 
-/** Stable, non-reversible bucket key for a client. */
-export function clientKey(request: Request, scope: string): string {
+/**
+ * Stable, non-reversible bucket key for a client.
+ *
+ * `salt` narrows how long the key stays stable: passing the current day, for
+ * example, yields a key that cannot be correlated with yesterday's.
+ */
+export function clientKey(request: Request, scope: string, salt = ''): string {
   return `${scope}:${createHmac('sha256', serverSecret())
-    .update(clientIp(request))
+    .update(`client-ip:v1|${salt}|${clientIp(request)}`)
     .digest('base64url')
     .slice(0, 32)}`;
 }

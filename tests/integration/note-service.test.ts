@@ -239,6 +239,68 @@ describe('consumeNote - password protection', () => {
   });
 });
 
+describe('consumeNote - hardening', () => {
+  it('evaluates at most the attempt cap when wrong passwords arrive all at once', async () => {
+    const { input } = await seal('burst target', 'correct horse');
+    const { id } = await createNote(input);
+
+    // 40 parallel guesses. Without reserving an attempt before comparing,
+    // every one of them would be checked before the first counter landed.
+    const results = await Promise.all(
+      Array.from({ length: 40 }, (_, index) => consumeNote(id, `wrong-token-${index}`)),
+    );
+
+    const evaluated = results.filter(
+      (result) => result.status === 'invalid_password' || result.status === 'destroyed',
+    );
+    expect(evaluated.length).toBeLessThanOrEqual(MAX_PASSWORD_ATTEMPTS);
+    expect(results.some((result) => result.status === 'ok')).toBe(false);
+
+    // The note is gone, and the right password no longer opens it.
+    await expect(consumeNote(id, input.authToken)).resolves.toMatchObject({ status: 'gone' });
+    const row = await prisma.note.findUniqueOrThrow({ where: { id } });
+    expect(row.failedAttempts).toBe(MAX_PASSWORD_ATTEMPTS);
+    expect(row.ciphertext).toBe('');
+  });
+
+  it('still opens with the right password on the last allowed attempt', async () => {
+    const { input } = await seal('last chance', 'correct horse');
+    const { id } = await createNote(input);
+
+    for (let attempt = 1; attempt < MAX_PASSWORD_ATTEMPTS; attempt += 1) {
+      await expect(consumeNote(id, 'wrong')).resolves.toMatchObject({
+        status: 'invalid_password',
+      });
+    }
+    await expect(consumeNote(id, input.authToken)).resolves.toMatchObject({ status: 'ok' });
+  });
+
+  it('erases the label and the password proof when a note is read', async () => {
+    const { input } = await seal('x', 'pw');
+    const { id } = await createNote({ ...input, label: 'Server login' });
+    await consumeNote(id, input.authToken);
+
+    const row = await prisma.note.findUniqueOrThrow({ where: { id } });
+    expect(row.label).toBeNull();
+    expect(row.authTokenHash).toBeNull();
+    expect(row.ciphertext).toBe('');
+    expect(row.wrappedKey).toBe('');
+  });
+
+  it('erases the label and the password proof when a note is destroyed', async () => {
+    const { input } = await seal('x', 'pw');
+    const { id } = await createNote({ ...input, label: 'Server login' });
+    for (let attempt = 0; attempt < MAX_PASSWORD_ATTEMPTS; attempt += 1) {
+      await consumeNote(id, 'wrong');
+    }
+
+    const row = await prisma.note.findUniqueOrThrow({ where: { id } });
+    expect(row.consumedAt).not.toBeNull();
+    expect(row.label).toBeNull();
+    expect(row.authTokenHash).toBeNull();
+  });
+});
+
 describe('cleanupNotes', () => {
   it('deletes expired notes and old tombstones, and scrubs stragglers', async () => {
     const { input } = await seal('x');

@@ -15,7 +15,7 @@
  * Even a fully compromised admin session cannot read a note: the dashboard
  * only ever queries aggregate counters, and the data simply is not there.
  */
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 import { adminPasswordHash, isProduction, serverSecret } from './env';
 
@@ -91,8 +91,20 @@ export function verifyAdminPassword(password: string): boolean {
   return timingSafeEqual(derived, expected);
 }
 
+/**
+ * Signs a session payload.
+ *
+ * The configured password hash is mixed in, so changing the admin password
+ * invalidates every session issued under the old one. The fixed prefix keeps
+ * these signatures in a different domain from the other uses of SERVER_SECRET.
+ */
 function sign(payload: string): string {
-  return createHmac('sha256', serverSecret()).update(payload).digest('base64url');
+  const passwordBinding = createHash('sha256')
+    .update(adminPasswordHash() ?? '')
+    .digest('base64url');
+  return createHmac('sha256', serverSecret())
+    .update(`admin-session:v2|${passwordBinding}|${payload}`)
+    .digest('base64url');
 }
 
 /** Issues `<expiry>.<nonce>.<hmac>`. */

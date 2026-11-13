@@ -342,7 +342,7 @@ export const LANDING_PAGES: Record<string, LandingContent> = {
     slug: 'private-note',
     title: 'Send a Private Note Online',
     metaDescription:
-      'Write a private note in your browser, share it with a single link, and have it delete itself after it is read. No account, no tracking on note pages.',
+      'Write a private note in your browser, share it with a single link, and have it delete itself after it is read. No account, no ad trackers.',
     eyebrow: 'Guide',
     h1: 'Send a private note online',
     lead: 'Private should mean the service hosting it cannot read it — not that it promises not to look.',
@@ -366,9 +366,9 @@ export const LANDING_PAGES: Record<string, LandingContent> = {
         ],
       },
       {
-        heading: 'No tracking where it matters',
+        heading: 'No third parties on the page',
         body: [
-          'Note creation and note reading pages carry no analytics and no third-party scripts. There is nothing on those pages to record what you wrote, when you read it, or who you are. That is a deliberate line: an analytics script on a page that displays secrets is a bad idea regardless of the vendor’s privacy claims.',
+          'Note pages load no third-party scripts and no analytics service. There is nothing on them to record what you wrote or who you are. That is a deliberate line: someone else’s script on a page that displays secrets is a bad idea regardless of the vendor’s privacy claims. The one thing we measure ourselves is how many people are on the site and roughly where, to the nearest region. Note reading pages are left out of that entirely, and the count is never linked to a note.',
         ],
       },
     ],
@@ -386,7 +386,7 @@ export const LANDING_PAGES: Record<string, LandingContent> = {
       {
         question: 'Is there any tracking?',
         answer:
-          'There are no advertising trackers anywhere on the site, and no analytics at all on note creation or note reading pages.',
+          'There are no advertising trackers and no third-party scripts anywhere on the site. We count visitors by approximate region ourselves, without storing IP addresses; note reading pages are not counted at all.',
       },
     ],
     related: ['encrypted-note', 'temporary-private-message', 'one-time-message'],

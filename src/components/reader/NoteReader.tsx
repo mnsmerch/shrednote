@@ -46,8 +46,10 @@ type Phase =
  *  - Nothing is consumed until the recipient acts (or, when the sender turned
  *    confirmation off, until the page has loaded in a real browser). The server
  *    call that returns the ciphertext also destroys it.
- *  - After a successful reveal the fragment is stripped from the address bar so
- *    the key does not linger in history, screenshots or shoulder-surfing range.
+ *  - After a successful reveal, and whenever the note turns out to be gone,
+ *    destroyed or undecryptable, the fragment is stripped from the address bar
+ *    so the key does not linger in history, screenshots or shoulder-surfing
+ *    range.
  */
 export function NoteReader({ id }: { id: string }) {
   /*
@@ -71,6 +73,16 @@ export function NoteReader({ id }: { id: string }) {
 
   const consuming = useRef(false);
   const passwordId = useId();
+
+  // Once the link can no longer open anything, the key in the address bar is
+  // dead weight: remove it so it does not linger in history or screenshots.
+  useEffect(() => {
+    if (phase === 'gone' || phase === 'destroyed' || phase === 'broken-link') {
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, [phase]);
 
   /**
    * Consumes and decrypts the note. `note` is passed in rather than read from

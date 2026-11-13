@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 
 import { SiteFooter } from '@/components/layout/SiteFooter';
+import { PresenceBeacon } from '@/components/layout/PresenceBeacon';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { site, siteUrl } from '@/lib/site';
 
@@ -46,6 +47,15 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+/**
+ * Every page renders per request. The Content-Security-Policy carries a fresh
+ * nonce each time (see src/proxy.ts), and under 'strict-dynamic' a browser
+ * only runs scripts stamped with it. A page prerendered at build time has no
+ * nonce on its script tags, so the browser would block them and the page
+ * would never become interactive.
+ */
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -74,6 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        <PresenceBeacon />
       </body>
     </html>
   );

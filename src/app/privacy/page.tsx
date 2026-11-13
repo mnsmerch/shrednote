@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/privacy' },
 };
 
-const UPDATED = 'September 2026';
+const UPDATED = 'November 2026';
 
 export default function PrivacyPage() {
   return (
@@ -30,7 +30,14 @@ export default function PrivacyPage() {
         </li>
         <li>Encryption keys are never sent to us, so we cannot store them.</li>
         <li>Encrypted notes are deleted once read, or when they expire.</li>
-        <li>No advertising trackers anywhere, and no analytics at all on note pages.</li>
+        <li>
+          No advertising trackers, no third-party scripts and no cookies for visitors. Note reading
+          pages report nothing about who is viewing them.
+        </li>
+        <li>
+          We count how many people are on the site and roughly where they are, to the nearest
+          region. Your IP address is never stored, and the count cannot be linked to a note.
+        </li>
       </ul>
 
       <h2>No account is required</h2>
@@ -95,7 +102,8 @@ export default function PrivacyPage() {
       <p>
         When a note is read, the ciphertext is erased in the same database operation that returns
         it. A small record with no message content remains briefly so that a second visit can be
-        told the note is gone; that record is deleted by a scheduled cleanup job within seven days.
+        told the note is gone. The optional label and the password proof are erased from it at the
+        same moment, and the record itself is deleted by a scheduled cleanup job within eight days.
       </p>
       <p>
         A note that expires unread stops being readable at its expiry time — the server refuses it
@@ -127,8 +135,9 @@ export default function PrivacyPage() {
           note body or key cannot be logged by accident.
         </li>
         <li>
-          <strong>Aggregate counters.</strong> Daily totals — notes created, read, expired — power
-          an internal dashboard. They contain no note identifiers and cannot be traced to a person.
+          <strong>Aggregate counters.</strong> Daily totals — notes created, read, expired, and how
+          often a note link was looked up — power an internal dashboard. They contain no note
+          identifiers and cannot be traced to a person.
         </li>
       </ul>
       <p>
@@ -144,12 +153,44 @@ export default function PrivacyPage() {
         our platform allows.
       </p>
 
-      <h2>Analytics and trackers</h2>
+      <h2>Visitor counts and approximate location</h2>
       <p>
-        There is no advertising tracking on ShredNote, and no third-party scripts of any kind. Note
-        creation pages and note reading pages carry no analytics whatsoever. If we ever add
-        analytics to informational pages, it will be a privacy-friendly, cookie-free option that
-        does not profile visitors, and this page will say so before it ships.
+        There is no advertising tracking on ShredNote, and no third-party scripts or analytics
+        services of any kind. We do run one measurement of our own, so that the site owner can see
+        how many people are using the site and roughly where they are. This is exactly what it
+        does:
+      </p>
+      <ul>
+        <li>
+          While a page is open and visible, your browser sends our server a short &ldquo;someone is
+          here&rdquo; signal about every 45 seconds. It has no content: no page address, no cookie,
+          no identifier chosen by us.
+        </li>
+        <li>
+          From the connection itself, our hosting platform tells us an approximate location. We keep
+          the country, the region (a state or province) and map coordinates rounded to a whole
+          degree — about 100 kilometres. We do not keep the city.
+        </li>
+        <li>
+          To count you once rather than every 45 seconds, your IP address is turned into a keyed
+          digest that changes every day. The address itself is not stored, and one day&rsquo;s
+          digest cannot be matched to the next.
+        </li>
+        <li>
+          That record is deleted within about 30 minutes of your last signal, and no later than the
+          next daily cleanup. What remains is a number: visits per day, per region.
+        </li>
+        <li>
+          <strong>Note reading pages send no signal at all</strong>, so opening a note leaves no
+          trace of where it was opened. The record is never connected to a note, on any page.
+        </li>
+        <li>
+          If your browser sends Global Privacy Control or Do Not Track, we do not count you.
+        </li>
+      </ul>
+      <p>
+        The owner&rsquo;s dashboard shows these figures only as totals by region. It cannot show an
+        individual visitor.
       </p>
 
       <h2>Cookies</h2>
@@ -190,7 +231,8 @@ export default function PrivacyPage() {
       <h2>Children</h2>
       <p>
         ShredNote is not directed at children and we do not knowingly collect information from
-        anyone. Since the service collects no personal data at all, there is nothing to remove.
+        anyone. The service keeps no name, contact detail or account for any visitor, so there is
+        nothing to remove.
       </p>
 
       <h2>Changes</h2>

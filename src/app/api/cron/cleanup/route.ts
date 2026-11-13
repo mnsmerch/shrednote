@@ -11,7 +11,9 @@ import { timingSafeEqual } from 'node:crypto';
 import { apiError, json, serverError } from '@/lib/server/api';
 import { cronSecret } from '@/lib/server/env';
 import { cleanupNotes } from '@/lib/notes/service';
+import { prunePresence } from '@/lib/server/presence';
 import { pruneRateLimits } from '@/lib/server/rate-limit';
+import { bump } from '@/lib/server/stats';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +37,10 @@ async function handle(request: Request): Promise<Response> {
   try {
     const notes = await cleanupNotes();
     const rateLimits = await pruneRateLimits();
-    return json({ ...notes, rateLimitsPruned: rateLimits });
+    const presence = await prunePresence();
+    // Recorded last, so the dashboard only reports runs that finished.
+    await bump('cleanupRuns');
+    return json({ ...notes, rateLimitsPruned: rateLimits, presencePruned: presence });
   } catch {
     return serverError('cron.cleanup');
   }
