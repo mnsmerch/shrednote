@@ -140,14 +140,15 @@ trip. Using the database we already run removes a moving part and a second
 place where request metadata could accumulate. If you outgrow it, reimplement
 `consume()` in `src/lib/server/rate-limit.ts` — nothing else needs to change.
 
-Runtime dependencies: `next`, `react`, `react-dom`, `@prisma/client`, `zod`.
+Runtime dependencies: `next`, `react`, `react-dom`, `@prisma/client`,
+`@prisma/adapter-pg`, `zod`.
 That is the complete list.
 
 ---
 
 ## Getting started
 
-Requirements: Node 20.11+ and PostgreSQL 14+.
+Requirements: Node 20.19+ and PostgreSQL 14+.
 
 ```bash
 git clone <repository-url> shrednote
@@ -248,6 +249,20 @@ DDL nor hold the advisory lock Prisma uses to serialise concurrent migrations.
 `DIRECT_DATABASE_URL` must therefore be the direct endpoint — for Neon, the
 host without `-pooler`; for Supabase, port 5432 rather than 6543. With a plain
 Postgres and no pooler, set both to the same value.
+
+If `DIRECT_DATABASE_URL` is unset or blank, migrations fall back to
+`DATABASE_URL_UNPOOLED` — the name Vercel's Neon integration gives the direct
+connection string — and then to `DATABASE_URL`. A project that uses that
+integration therefore needs no database variables set by hand.
+
+**TLS to the database.** The application connects through the node-postgres
+driver, which reads `sslmode` from `DATABASE_URL` more strictly than libpq
+does: `sslmode=require` verifies the server certificate and hostname, and a
+URL with no `sslmode` connects without TLS. Use `sslmode=verify-full` (or
+`require`) for any hosted database. Providers with publicly trusted
+certificates, such as Neon, need nothing else. If your provider signs with its
+own CA, as Supabase does, supply that CA through `sslrootcert`; do not reach
+for `sslmode=no-verify`, which disables certificate checking.
 
 **Preview deployments.** Migrating during the build means a preview deployment
 migrates whatever database its environment variables point at. If you use
