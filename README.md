@@ -250,6 +250,11 @@ DDL nor hold the advisory lock Prisma uses to serialise concurrent migrations.
 host without `-pooler`; for Supabase, port 5432 rather than 6543. With a plain
 Postgres and no pooler, set both to the same value.
 
+If `DIRECT_DATABASE_URL` is unset or blank, migrations fall back to
+`DATABASE_URL_UNPOOLED` — the name Vercel's Neon integration gives the direct
+connection string — and then to `DATABASE_URL`. A project that uses that
+integration therefore needs no database variables set by hand.
+
 **TLS to the database.** The application connects through the node-postgres
 driver, which reads `sslmode` from `DATABASE_URL` more strictly than libpq
 does: `sslmode=require` verifies the server certificate and hostname, and a

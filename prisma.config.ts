@@ -26,10 +26,20 @@ for (const file of ['.env.local', '.env']) {
   }
 }
 
+// Empty strings count as unset: a variable that exists but is blank must not
+// shadow a usable one. DATABASE_URL_UNPOOLED is the name Vercel's Neon
+// integration gives the direct connection string, so a project using that
+// integration migrates correctly without DIRECT_DATABASE_URL being set by hand.
+const migrationUrl =
+  process.env.DIRECT_DATABASE_URL ||
+  process.env.DATABASE_URL_UNPOOLED ||
+  process.env.DATABASE_URL ||
+  '';
+
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: { path: 'prisma/migrations' },
   datasource: {
-    url: process.env.DIRECT_DATABASE_URL ?? process.env.DATABASE_URL ?? '',
+    url: migrationUrl,
   },
 });
